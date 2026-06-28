@@ -17,7 +17,10 @@ from sandbox import GitActionSandbox
 from advanced_aci import auto_fix_all_python_files
 
 # Configurations
-api_base = os.environ.get("ZAI_API_URL", "http://host.docker.internal:11434/v1")
+api_base = os.environ.get("ZAI_API_URL", "").strip()
+if not api_base:
+    print("❌ ERROR: ZAI_API_URL (or OLLAMA_NGROK_URL secret) is empty. Please set your Ngrok URL in GitHub Secrets!")
+    sys.exit(1)
 api_key = "ollama"
 MODEL_NAME = "qwen2.5:14b"
 MAX_JOB_SECONDS = 19800 # 5.5 hours
