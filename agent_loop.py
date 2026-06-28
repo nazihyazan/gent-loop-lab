@@ -8,11 +8,12 @@ api_key = "ollama"
 
 client = OpenAI(
     base_url=api_base,
-    api_key=api_key
+    api_key=api_key,
+    default_headers={"ngrok-skip-browser-warning": "any"}
 )
 
 # The model name loaded in Kaggle
-MODEL_NAME = "zai:5.2"
+MODEL_NAME = "qwen2.5:14b"
 
 def call_agent(role, task, context=""):
     print(f"\\n--- Running {role} ---")
