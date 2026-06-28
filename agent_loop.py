@@ -67,12 +67,15 @@ def main():
         code = call_agent("Executor", executor_task, context=plan)
         
         # Clean up markdown wrappers if present
-        lines = code.split('\n')
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].startswith("```"):
-            lines = lines[:-1]
-        final_code = '\n'.join(lines)
+        code = code.strip()
+        if code.startswith("```"):
+            # Find the first newline to skip the ```language part
+            first_newline = code.find('\n')
+            if first_newline != -1:
+                code = code[first_newline+1:]
+        if code.endswith("```"):
+            code = code[:-3].strip()
+        final_code = code
 
         
         # 4. Reviewer Agent (YouTube Persona)
