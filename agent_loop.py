@@ -22,7 +22,7 @@ if not api_base:
     print("❌ ERROR: ZAI_API_URL (or OLLAMA_NGROK_URL secret) is empty. Please set your Ngrok URL in GitHub Secrets!")
     sys.exit(1)
 api_key = "ollama"
-MODEL_NAME = "qwen2.5:14b"
+MODEL_NAME = "qwen2.5-coder:32b"
 MAX_JOB_SECONDS = 19800 # 5.5 hours
 
 client = OpenAI(
