@@ -1,6 +1,8 @@
 name: Autonomous Agent Run
 
 on:
+  push:
+    branches: [ main, auto-checkpoint ]
   workflow_dispatch:
     inputs:
       task:
@@ -40,7 +42,7 @@ jobs:
           ZAI_API_URL: ${{ secrets.OLLAMA_NGROK_URL }}
           # Token required for Watchdog Resurrection
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TASK: ${{ github.event.inputs.task || github.event.client_payload.task }}
+          TASK: ${{ github.event.inputs.task || github.event.client_payload.task || 'Resume execution from last checkpoint' }}
         run: python agent_loop.py "$TASK"
 
       - name: Zip Output

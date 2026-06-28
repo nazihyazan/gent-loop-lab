@@ -232,8 +232,32 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
         if message.content:
             print(message.content)
             
-        if message.tool_calls:
-            for tool_call in message.tool_calls:
+        tool_calls_to_process = message.tool_calls or []
+        
+        # Fallback for raw JSON tool calls in content
+        if not tool_calls_to_process and message.content:
+            try:
+                import json, uuid
+                start = message.content.find('{')
+                end = message.content.rfind('}')
+                if start != -1 and end != -1:
+                    json_str = message.content[start:end+1]
+                    data = json.loads(json_str)
+                    if "name" in data and "arguments" in data:
+                        class FakeFunction:
+                            def __init__(self, name, arguments):
+                                self.name = name
+                                self.arguments = json.dumps(arguments) if isinstance(arguments, dict) else arguments
+                        class FakeToolCall:
+                            def __init__(self, function):
+                                self.id = f"call_{uuid.uuid4().hex[:8]}"
+                                self.function = function
+                        tool_calls_to_process = [FakeToolCall(FakeFunction(data["name"], data["arguments"]))]
+            except Exception:
+                pass
+            
+        if tool_calls_to_process:
+            for tool_call in tool_calls_to_process:
                 print(f"[{role}] 🛠️ Tool Call: {tool_call.function.name}(...)")
                 result = execute_tool(tool_call)
                 print(f"[{role}] ⬅️ Tool Result: {result[:200]}...")
