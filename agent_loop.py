@@ -2,11 +2,11 @@ import os
 import json
 import shutil
 import urllib.request
+import subprocess
 from openai import OpenAI
 
 # The Ngrok URL provided by Kaggle, passed via GitHub Secrets
 api_base = os.environ.get("ZAI_API_URL", "http://localhost:11434/v1")
-# Ollama doesn't require a real API key, but the client requires the parameter
 api_key = "ollama"
 
 client = OpenAI(
@@ -19,7 +19,7 @@ client = OpenAI(
 MODEL_NAME = "qwen2.5:14b"
 
 def load_knowledge_base(directory="knowledge"):
-    """Reads all markdown and text files in the knowledge directory and combines them into a single string."""
+    """Reads all markdown and text files in the knowledge directory."""
     kb_content = ""
     if not os.path.exists(directory):
         return kb_content
@@ -31,40 +31,63 @@ def load_knowledge_base(directory="knowledge"):
                 kb_content += f"\n--- {filename} ---\n{f.read()}\n"
     return kb_content
 
-def validate_syntax_in_output(output_dir="output"):
-    """Basic non-LLM check to ensure brackets are matched in all generated code files."""
-    brackets = {'{': '}', '[': ']', '(': ')'}
-    
+def load_episodic_memory(memory_file="reflection.jsonl"):
+    """Loads past failures and reflections so the agent doesn't repeat mistakes."""
+    if not os.path.exists(memory_file):
+        return "No past memories."
+    try:
+        memories = []
+        with open(memory_file, 'r') as f:
+            for line in f.readlines()[-5:]: # Get last 5 memories
+                memories.append(json.loads(line))
+        
+        memory_str = "PAST MISTAKES TO AVOID:\n"
+        for m in memories:
+            memory_str += f"- Failed at: {m['error'][:100]}... | Lesson: {m['reflection']}\n"
+        return memory_str
+    except Exception:
+        return "Memory corrupted."
+
+def save_episodic_memory(error, reflection, memory_file="reflection.jsonl"):
+    """Saves a learned lesson to episodic memory."""
+    memory = {
+        "error": error,
+        "reflection": reflection
+    }
+    with open(memory_file, 'a') as f:
+        f.write(json.dumps(memory) + "\n")
+
+def run_sandbox_tests(output_dir="output"):
+    """Executes a real syntax check via subprocess to capture actual error logs (Reflexion)."""
     if not os.path.exists(output_dir):
-        return True, "No files generated to check."
+        return True, "No files to check."
         
     for root, _, files in os.walk(output_dir):
         for file in files:
-            if file.endswith(('.js', '.jsx', '.ts', '.tsx', '.py', '.json')):
-                filepath = os.path.join(root, file)
-                with open(filepath, 'r') as f:
-                    code = f.read()
+            filepath = os.path.join(root, file)
+            # Try to run node syntax check if it's JS
+            if file.endswith(('.js', '.jsx')):
+                try:
+                    result = subprocess.run(["node", "--check", filepath], capture_output=True, text=True, timeout=10)
+                    if result.returncode != 0:
+                        return False, f"Node Syntax Error in {file}:\n{result.stderr}"
+                except FileNotFoundError:
+                    pass # Node not installed, fallback to basic
                     
-                stack = []
-                for char in code:
-                    if char in brackets:
-                        stack.append(char)
-                    elif char in brackets.values():
-                        if not stack:
-                            return False, f"File {file}: Found closing bracket with no matching opening bracket."
-                        last = stack.pop()
-                        if brackets[last] != char:
-                            return False, f"File {file}: Mismatched brackets found."
-                            
-                if stack:
-                    return False, f"File {file}: Unclosed brackets found."
-    return True, "All generated files have valid basic syntax."
+            # Try python compile check if it's Python
+            elif file.endswith('.py'):
+                try:
+                    result = subprocess.run(["python3", "-m", "py_compile", filepath], capture_output=True, text=True, timeout=10)
+                    if result.returncode != 0:
+                        return False, f"Python Syntax Error in {file}:\n{result.stderr}"
+                except FileNotFoundError:
+                    pass
+
+    return True, "All files passed sandbox execution checks."
 
 def read_entire_output(output_dir="output"):
-    """Reads all files in the output directory for the Reviewer to analyze."""
     if not os.path.exists(output_dir):
         return "No files generated yet."
-    
     content = ""
     for root, _, files in os.walk(output_dir):
         for file in files:
@@ -75,7 +98,6 @@ def read_entire_output(output_dir="output"):
     return content
 
 def execute_tool(tool_call):
-    """Executes the requested tool and returns the result string."""
     name = tool_call.function.name
     try:
         args = json.loads(tool_call.function.arguments)
@@ -95,11 +117,8 @@ def execute_tool(tool_call):
         filepath = args.get("filepath", "")
         content = args.get("content", "")
         print(f"🛠️ Agent writing file: output/{filepath}")
-        
-        # Ensure it writes inside 'output' directory
         full_path = os.path.join("output", filepath)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        
         try:
             with open(full_path, 'w') as f:
                 f.write(content)
@@ -113,10 +132,9 @@ def execute_tool(tool_call):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as response:
-                return response.read().decode('utf-8')[:5000] # Limit to 5k chars to avoid token explosion
+                return response.read().decode('utf-8')[:5000]
         except Exception as e:
             return f"Error fetching URL: {str(e)}"
-
     return f"Unknown tool: {name}"
 
 def call_agent(role, task, context="", custom_system_prompt=None, available_tools=None):
@@ -132,28 +150,12 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
     tools = []
     if available_tools:
         if "read_file" in available_tools:
-            tools.append({
-                "type": "function", "function": {
-                    "name": "read_file", "description": "Read a local file",
-                    "parameters": {"type": "object", "properties": {"filepath": {"type": "string"}}, "required": ["filepath"]}
-                }
-            })
+            tools.append({"type": "function", "function": {"name": "read_file", "parameters": {"type": "object", "properties": {"filepath": {"type": "string"}}, "required": ["filepath"]}}})
         if "write_file" in available_tools:
-            tools.append({
-                "type": "function", "function": {
-                    "name": "write_file", "description": "Write a file to the output directory",
-                    "parameters": {"type": "object", "properties": {"filepath": {"type": "string", "description": "Relative path (e.g. src/App.js)"}, "content": {"type": "string", "description": "The file content"}}, "required": ["filepath", "content"]}
-                }
-            })
+            tools.append({"type": "function", "function": {"name": "write_file", "parameters": {"type": "object", "properties": {"filepath": {"type": "string"}, "content": {"type": "string"}}, "required": ["filepath", "content"]}}})
         if "fetch_url" in available_tools:
-            tools.append({
-                "type": "function", "function": {
-                    "name": "fetch_url", "description": "Fetch text from a website URL to do research",
-                    "parameters": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}
-                }
-            })
+            tools.append({"type": "function", "function": {"name": "fetch_url", "parameters": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}}})
 
-    # Allow the agent to call tools multiple times in a loop (max 5 times)
     max_tool_iterations = 5
     for i in range(max_tool_iterations):
         response = client.chat.completions.create(
@@ -168,92 +170,84 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
         if message.tool_calls:
             for tool_call in message.tool_calls:
                 result = execute_tool(tool_call)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": tool_call.function.name,
-                    "content": result
-                })
+                messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": tool_call.function.name, "content": result})
         else:
-            # No more tool calls, we have the final answer
             output = message.content
-            print(f"[{role} Output]:\n{output}\n")
+            print(f"[{role} Output]:\n{output[:500]}...\n")
             return output
             
-    print(f"⚠️ {role} reached maximum tool iterations!")
     return messages[-1].content
 
 def main():
-    print("🚀 Starting Zai 5.3 Agent Framework V3 (Multi-File, Research, Zip)...")
+    print("🚀 Starting Zai 5.3 Agent Framework V4 (Reflexion, Episodic Memory)...")
     
-    # Clean previous output directory
     if os.path.exists("output"):
         shutil.rmtree("output")
     os.makedirs("output")
     
-    print("📚 Loading knowledge base...")
     kb = load_knowledge_base()
-    if kb:
-        print("✅ Knowledge base loaded!")
-        
-    goal = "Create a React Native Expo project structure for Career-Ops. I need a modular architecture. Create App.js, a Dashboard screen, and a reusable Button component. Use dark mode."
+    memory = load_episodic_memory()
+    
+    goal = "Create a React Native Expo project structure for Career-Ops. Create App.js, a Dashboard screen, and a reusable Button component. Use dark mode."
     print(f"\nGoal: {goal}\n")
     
     max_iterations = 3
     iteration = 1
-    reviewer_feedback = ""
+    reflection_context = ""
     
     while iteration <= max_iterations:
         print(f"\n==========================================")
         print(f"🔄 ITERATION {iteration}/{max_iterations}")
         print(f"==========================================\n")
         
-        # 1. Planner Agent (Has Research Tools)
-        planner_task = "Break down the goal into an implementation plan. Use the fetch_url tool if you need to look up documentation. Specify the exact files to be created."
-        planner_context = f"Goal: {goal}\n\nProject Knowledge Base:\n{kb}"
-        if reviewer_feedback:
-            planner_context += f"\n\nPREVIOUS REVIEWER CRITIQUE:\n{reviewer_feedback}"
+        # 1. Planner Agent
+        planner_task = "Break down the goal into an implementation plan. Specify the exact files to be created."
+        planner_context = f"Goal: {goal}\n\nKnowledge Base:\n{kb}\n\nEpisodic Memory:\n{memory}"
+        if reflection_context:
+            planner_context += f"\n\nREFLEXION FEEDBACK FROM LAST ATTEMPT:\n{reflection_context}"
             
         plan = call_agent("Planner", planner_task, context=planner_context, available_tools=["read_file", "fetch_url"])
         
-        # 2. Executor Agent (Has Write Tools)
-        executor_task = "You must use the `write_file` tool to save each file described in the plan. Write production-ready code. Once you have written all files, output a summary of what you created."
-        executor_persona = "You are a world-class Mobile Developer. You ALWAYS use premium aesthetics (Dark Mode). You MUST use the `write_file` tool to create a multi-file modular project structure."
+        # 2. Executor Agent
+        executor_task = "Use the `write_file` tool to save each file described in the plan. Write production-ready code."
+        executor_persona = "You are a world-class Developer. You ALWAYS use `write_file` to structure projects."
         executor_summary = call_agent("Executor", executor_task, context=plan, custom_system_prompt=executor_persona, available_tools=["write_file"])
 
-        # 3. Syntax Validator (Non-LLM Gate)
-        print("🔍 Validating syntax across generated files...")
-        is_valid, syntax_msg = validate_syntax_in_output()
+        # 3. Sandbox Runner (Execution)
+        print("🔍 Running Sandbox Execution Verification...")
+        is_valid, sandbox_error = run_sandbox_tests()
+        
         if not is_valid:
-            print(f"❌ Syntax Error: {syntax_msg}. Sending back to Planner...")
-            reviewer_feedback = f"FATAL SYNTAX ERROR: {syntax_msg}. Please fix the code."
+            print(f"❌ Sandbox Execution Failed: {sandbox_error}")
+            # 4a. Reflection Agent
+            print("🧠 Initiating Reflexion Loop...")
+            reflection_task = f"The sandbox execution crashed with this real terminal error:\n{sandbox_error}\nAnalyze why this failed, and give explicit instructions on how to fix it."
+            reflection = call_agent("Reflector", reflection_task, context=read_entire_output(), custom_system_prompt="You are a brilliant debugging AI.")
+            
+            save_episodic_memory(sandbox_error, reflection)
+            reflection_context = reflection
             iteration += 1
             continue
-        print("✅ Syntax across all files is valid.")
+            
+        print("✅ Sandbox execution passed!")
         
-        # 4. Reviewer Agent
+        # 4b. Reviewer Agent (Architecture Check)
         project_code = read_entire_output()
-        reviewer_task = "Review the entire generated codebase. Roast bad architecture, ugly UI, and generic colors. If it's modular, stunning, and perfect, reply with exactly 'APPROVED'."
-        youtube_persona = """You are the ultimate Tech YouTuber. 
-- MKBHD: "Where is the matte black dark mode?"
-- ThePrimeagen: "Is this modular? This code is garbage."
-- Linus Tech Tips: "No error handling? Are you kidding me?!"
-Roast the code brutally but constructively. If the architecture is beautiful and perfect, say exactly 'APPROVED'."""
-        
+        reviewer_task = "Review the entire generated codebase. If the architecture is beautiful and perfect, say exactly 'APPROVED'."
+        youtube_persona = "You are MKBHD and ThePrimeagen. Roast bad code. Only say 'APPROVED' if it is flawless."
         review = call_agent("Reviewer", reviewer_task, context=project_code, custom_system_prompt=youtube_persona)
         
         if "APPROVED" in review.upper():
             print("\n✅ Reviewer APPROVED the project! Ending loop.")
             break
         else:
-            print("\n❌ Reviewer REJECTED the project. Sending feedback back to Planner...")
-            reviewer_feedback = review
+            print("\n❌ Reviewer REJECTED the project.")
+            reflection_context = f"Reviewer Feedback: {review}"
             iteration += 1
             
     if iteration > max_iterations:
-        print("\n⚠️ Maximum iterations reached. Proceeding with latest files anyway.")
+        print("\n⚠️ Maximum iterations reached. Proceeding with latest files.")
         
-    # Zip the output directory
     print("\n📦 Zipping the project for download...")
     shutil.make_archive('project_ready', 'zip', 'output')
     print("✅ Project zipped into 'project_ready.zip'")
