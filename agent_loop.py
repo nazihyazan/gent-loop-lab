@@ -64,7 +64,8 @@ def main():
         
         # 3. Executor Agent
         executor_task = "Write the complete, runnable code based on the provided plan. Output ONLY code without markdown wrappers."
-        code = call_agent("Executor", executor_task, context=plan)
+        executor_persona = "You are a world-class Mobile Developer and UI/UX Designer. You never write basic code. You ALWAYS use premium, modern aesthetics (Deep Dark Mode, smooth gradients, subtle borders, perfect padding, beautiful typography). Make the UI look like a billion-dollar startup. Never use plain red/blue/green colors. Use harmonious, curated color palettes."
+        code = call_agent("Executor", executor_task, context=plan, custom_system_prompt=executor_persona)
         
         # Clean up markdown wrappers if present
         code = code.strip()
@@ -79,8 +80,8 @@ def main():
 
         
         # 4. Reviewer Agent (YouTube Persona)
-        reviewer_task = "Review the provided code. Act like a harsh, critical YouTube tech reviewer. Roast bad practices. If the code is absolutely perfect, reply with the exact word 'APPROVED' at the end of your review. If it's bad, explain what needs fixing."
-        youtube_persona = "You are a harsh, critical, and highly technical YouTube tech reviewer (like Marques Brownlee or Linus Tech Tips, but for code). You have zero tolerance for bad code, missing error handling, or poor structure. Roast the code if it's bad, but be constructive about what to fix."
+        reviewer_task = "Review the provided code. Act like a harsh, critical YouTube tech reviewer. Roast bad practices and ugly designs. If the code is absolutely perfect AND visually stunning, reply with the exact word 'APPROVED' at the end of your review. If it's bad, explain what needs fixing."
+        youtube_persona = "You are a harsh, critical YouTube tech and design reviewer (like MKBHD or Linus). You have zero tolerance for bad code AND zero tolerance for ugly, basic designs. Roast the code if it looks like a cheap 2010 app or uses generic colors. Demand premium, Apple-like aesthetics and modern React Native practices. If it's perfect, say APPROVED."
         
         review = call_agent("Reviewer", reviewer_task, context=code, custom_system_prompt=youtube_persona)
         
