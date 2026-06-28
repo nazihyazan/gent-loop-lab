@@ -32,11 +32,10 @@ jobs:
             echo "Error: ZAI_API_URL secret is missing! Set it to your Kaggle Ngrok URL."
             exit 1
           fi
-          cd agent-loop-lab
           python agent_loop.py
 
       - name: Upload Generated Artifact
         uses: actions/upload-artifact@v4
         with:
           name: agent-artifact
-          path: agent-loop-lab/final_code.py
+          path: final_code.py
