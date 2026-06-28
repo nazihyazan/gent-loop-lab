@@ -41,7 +41,7 @@ def main():
     print("🚀 Starting Zai 5.2 Agent Loop with YouTube Reviewer...")
     
     # 1. User Request
-    goal = "Create a comprehensive Python script that fetches weather data for Rabat, Morocco, and saves it to a JSON file."
+    goal = "Create a React Native Expo App.js file for Career-Ops. It should be a beautiful dark-mode Dashboard with Job Application Statistics, a list of Recent Applications, and Action Buttons. Output ONLY the raw App.js code."
     print(f"Goal: {goal}\n")
     
     max_iterations = 3
@@ -63,9 +63,17 @@ def main():
         plan = call_agent("Planner", planner_task, context=planner_context)
         
         # 3. Executor Agent
-        executor_task = "Write the complete, runnable Python code based on the provided plan. Output ONLY code."
+        executor_task = "Write the complete, runnable code based on the provided plan. Output ONLY code without markdown wrappers."
         code = call_agent("Executor", executor_task, context=plan)
-        final_code = code # Save the latest code
+        
+        # Clean up markdown wrappers if present
+        lines = code.split('\n')
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        final_code = '\n'.join(lines)
+
         
         # 4. Reviewer Agent (YouTube Persona)
         reviewer_task = "Review the provided code. Act like a harsh, critical YouTube tech reviewer. Roast bad practices. If the code is absolutely perfect, reply with the exact word 'APPROVED' at the end of your review. If it's bad, explain what needs fixing."
@@ -85,9 +93,9 @@ def main():
         print("\n⚠️ Maximum iterations reached. Saving the latest code anyway.")
         
     # Save the artifact
-    with open("final_code.py", "w") as f:
+    with open("App.js", "w") as f:
         f.write(final_code)
-    print("\n✅ Artifact saved as final_code.py")
+    print("\n✅ Artifact saved as App.js")
 
 if __name__ == "__main__":
     main()
