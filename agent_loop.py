@@ -226,9 +226,17 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
         response = client.chat.completions.create(model=MODEL_NAME, messages=messages, tools=tools if tools else None, temperature=temperature)
         message = response.choices[0].message
         messages.append(message)
+        
+        # --- ADDED LOGGING ---
+        print(f"\n[{role}] Agent thought:")
+        if message.content:
+            print(message.content)
+            
         if message.tool_calls:
             for tool_call in message.tool_calls:
+                print(f"[{role}] 🛠️ Tool Call: {tool_call.function.name}(...)")
                 result = execute_tool(tool_call)
+                print(f"[{role}] ⬅️ Tool Result: {result[:200]}...")
                 messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": tool_call.function.name, "content": result})
         else:
             return message.content

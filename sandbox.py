@@ -14,6 +14,20 @@ class GitActionSandbox:
         """
         abs_path = self.workspace_dir
         
+        # Check if the directory is completely empty
+        has_files = False
+        for root, dirs, files in os.walk(abs_path):
+            if any(f.endswith(('.py', '.js', '.jsx', '.ts', '.tsx', '.json', '.html', '.css')) for f in files):
+                has_files = True
+                break
+                
+        if not has_files:
+            return {
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "CRITICAL ERROR: No source files were generated in the output directory. You MUST use the write_file tool to create the requested files."
+            }
+        
         # Check if Node is required or Python
         # In a real dynamic agent, we would detect the file types.
         # For our use case, we test python syntax or node syntax generic checks.
