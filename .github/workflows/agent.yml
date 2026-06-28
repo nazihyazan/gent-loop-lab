@@ -1,0 +1,52 @@
+name: Autonomous Agent Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task for the agent to execute (use RESUME for checkpoints)'
+        required: true
+        default: 'Create a React Native Expo project structure for Career-Ops. Create App.js, a Dashboard screen, and a reusable Button component. Use dark mode.'
+  repository_dispatch:
+    types: [run-agent, resume-agent]
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 6 hours absolute hard cap
+
+    steps:
+      - name: Checkout Main Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai docker requests autopep8
+          # Install Node for Javascript testing inside sandbox
+          sudo apt-get install -y nodejs npm
+
+      - name: Execute Agent Loop (V6 Elite)
+        env:
+          # Your local Ngrok URL configured in Repo Secrets
+          ZAI_API_URL: ${{ secrets.OLLAMA_NGROK_URL }}
+          # Token required for Watchdog Resurrection
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TASK: ${{ github.event.inputs.task || github.event.client_payload.task }}
+        run: python agent_loop.py "$TASK"
+
+      - name: Zip Output
+        if: always()
+        run: zip -r agent_output.zip output/ || echo "No output to zip"
+
+      - name: Upload Project Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-project-output
+          path: agent_output.zip
