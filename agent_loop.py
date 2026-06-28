@@ -16,9 +16,9 @@ client = OpenAI(
 MODEL_NAME = "qwen2.5:14b"
 
 def call_agent(role, task, context=""):
-    print(f"\\n--- Running {role} ---")
+    print(f"\n--- Running {role} ---")
     system_prompt = f"You are an expert {role}. Provide output based on the task."
-    user_prompt = f"Context: {context}\\n\\nTask: {task}"
+    user_prompt = f"Context: {context}\n\nTask: {task}"
     
     response = client.chat.completions.create(
         model=MODEL_NAME,
@@ -30,23 +30,31 @@ def call_agent(role, task, context=""):
     )
     
     output = response.choices[0].message.content
-    print(f"[{role} Output]:\\n{output}")
+    print(f"[{role} Output]:\n{output}")
     return output
 
 def main():
     print("🚀 Starting Zai 5.2 Agent Loop...")
     
     # 1. User Request
-    goal = "Create a comprehensive Python script that fetches weather data for Rabat, Morocco, and saves it to a JSON file."
-    print(f"Goal: {goal}\\n")
+    goal = "Create a beautiful Web Application using Python and the Streamlit library. The app should be a 'Personal Task Manager' (To-Do List) where users can add tasks, mark them as done, and delete them. Make the UI look professional."
+    print(f"Goal: {goal}\n")
     
     # 2. Planner Agent
     planner_task = "Break down the goal into a step-by-step implementation plan."
     plan = call_agent("Planner", planner_task, context=goal)
     
     # 3. Executor Agent
-    executor_task = "Write the complete, runnable Python code based on the provided plan. Output ONLY code."
+    executor_task = "Write the complete, runnable Python code based on the provided plan. Output ONLY code without markdown wrappers like ```python if possible, or just standard code."
     code = call_agent("Executor", executor_task, context=plan)
+    
+    # Clean up the output if the model wrapped it in markdown
+    if code.startswith("```python"):
+        code = code[9:]
+    if code.startswith("```"):
+        code = code[3:]
+    if code.endswith("```"):
+        code = code[:-3]
     
     # 4. Reviewer Agent (Optional)
     reviewer_task = "Review the provided code for any bugs or improvements. Give a short summary."
@@ -54,8 +62,8 @@ def main():
     
     # Save the artifact
     with open("final_code.py", "w") as f:
-        f.write(code)
-    print("\\n✅ Loop completed. Artifact saved as final_code.py")
+        f.write(code.strip())
+    print("\n✅ Loop completed. Artifact saved as final_code.py")
 
 if __name__ == "__main__":
     main()
