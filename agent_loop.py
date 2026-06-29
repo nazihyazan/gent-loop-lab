@@ -224,15 +224,15 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
 
     import time
     for _ in range(5):
-        for retry in range(3):
+        for retry in range(10):
             try:
                 response = client.chat.completions.create(model=MODEL_NAME, messages=messages, tools=tools if tools else None, temperature=temperature)
                 break
             except Exception as e:
-                print(f"API Error: {e}, retrying {retry+1}/3...")
-                time.sleep(10)
+                print(f"API Error: {e}, retrying {retry+1}/10...")
+                time.sleep(15)
         else:
-            raise Exception("Failed to get API response after 3 retries")
+            raise Exception("Failed to get API response after 10 retries")
         message = response.choices[0].message
         messages.append(message)
         
