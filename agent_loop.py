@@ -305,7 +305,7 @@ def save_state():
     return state
 
 def restore_state(state):
-    if os.path.exists("output"): shutil.rmtree("output")
+    if os.path.exists("output"): shutil.rmtree("output", ignore_errors=True)
     os.makedirs("output")
     for filepath, content in state.items():
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
