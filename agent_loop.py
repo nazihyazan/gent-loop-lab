@@ -306,7 +306,7 @@ def save_state():
 
 def restore_state(state):
     if os.path.exists("output"): shutil.rmtree("output", ignore_errors=True)
-    os.makedirs("output")
+    os.makedirs("output", exist_ok=True)
     for filepath, content in state.items():
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         with open(filepath, 'w') as f: f.write(content)
