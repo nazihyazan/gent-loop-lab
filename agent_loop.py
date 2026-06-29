@@ -222,8 +222,17 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
         if "edit_file" in available_tools: tools.append({"type": "function", "function": {"name": "edit_file", "parameters": {"type": "object", "properties": {"filepath": {"type": "string"}, "diff_block": {"type": "string"}}, "required": ["filepath", "diff_block"]}}})
         if "fetch_url" in available_tools: tools.append({"type": "function", "function": {"name": "fetch_url", "parameters": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}}})
 
+    import time
     for _ in range(5):
-        response = client.chat.completions.create(model=MODEL_NAME, messages=messages, tools=tools if tools else None, temperature=temperature)
+        for retry in range(3):
+            try:
+                response = client.chat.completions.create(model=MODEL_NAME, messages=messages, tools=tools if tools else None, temperature=temperature)
+                break
+            except Exception as e:
+                print(f"API Error: {e}, retrying {retry+1}/3...")
+                time.sleep(5)
+        else:
+            raise Exception("Failed to get API response after 3 retries")
         message = response.choices[0].message
         messages.append(message)
         
