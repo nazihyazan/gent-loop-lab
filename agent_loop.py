@@ -230,7 +230,7 @@ def call_agent(role, task, context="", custom_system_prompt=None, available_tool
                 break
             except Exception as e:
                 print(f"API Error: {e}, retrying {retry+1}/3...")
-                time.sleep(5)
+                time.sleep(10)
         else:
             raise Exception("Failed to get API response after 3 retries")
         message = response.choices[0].message
