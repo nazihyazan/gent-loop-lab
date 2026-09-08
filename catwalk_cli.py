@@ -48,8 +48,24 @@ def main():
     print("=" * 60)
     
     subprocess.run(cmd, check=True)
+    
+    # Check if video was rendered (either exact name or with frame numbers)
+    target_output = os.path.abspath(args.output)
+    if not os.path.exists(target_output):
+        out_dir = os.path.dirname(target_output)
+        base = os.path.splitext(os.path.basename(target_output))[0]
+        for f in os.listdir(out_dir):
+            if f.startswith(base) and (f.endswith('.mp4') or f.endswith('.mkv')):
+                import shutil
+                shutil.copy2(os.path.join(out_dir, f), target_output)
+                break
+
+    if not os.path.exists(target_output):
+        print(f"Error: Rendered file not found at {target_output}")
+        sys.exit(1)
+        
     print("\nRender Complete! Video successfully created at:")
-    print(os.path.abspath(args.output))
+    print(target_output)
 
 if __name__ == "__main__":
     main()
