@@ -61,10 +61,13 @@ jobs:
             --color "$COLOR" \
             --frames "$FRAMES" \
             --output renders/ghost_mannequin_catwalk.mp4
+          
+          echo "Listing renders directory:"
+          ls -lh renders/
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ghost-mannequin-catwalk-video
-          path: renders/*
+          path: renders/
           retention-days: 30
