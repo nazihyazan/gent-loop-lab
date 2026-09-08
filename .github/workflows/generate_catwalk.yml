@@ -1,0 +1,64 @@
+name: Ghost Mannequin Catwalk Video Generator
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_path:
+        description: 'Path to dress image inside repository'
+        required: false
+        default: 'inputs/dress.jpg'
+      dress_color:
+        description: 'Dress accent color hex'
+        required: false
+        default: '#5c4046'
+      frames:
+        description: 'Total frames (120 frames = 5s, 240 frames = 10s)'
+        required: false
+        default: '120'
+  push:
+    paths:
+      - 'inputs/**'
+
+jobs:
+  generate-catwalk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies & Blender
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libgl1-mesa-glx mesa-utils ffmpeg
+          sudo snap install blender --classic
+
+      - name: Verify Blender Installation
+        run: |
+          blender --version
+
+      - name: Render Ghost Mannequin Catwalk Video
+        run: |
+          mkdir -p renders
+          IMAGE_PATH="${{ github.event.inputs.image_path || 'inputs/dress.jpg' }}"
+          COLOR="${{ github.event.inputs.dress_color || '#5c4046' }}"
+          FRAMES="${{ github.event.inputs.frames || '120' }}"
+          
+          xvfb-run -a python3 catwalk_cli.py \
+            --image "$IMAGE_PATH" \
+            --color "$COLOR" \
+            --frames "$FRAMES" \
+            --output renders/ghost_mannequin_catwalk.mp4
+
+      - name: Upload Video Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghost-mannequin-catwalk-video
+          path: renders/*.mp4
+          retention-days: 30
