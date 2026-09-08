@@ -1,28 +1,24 @@
-name: Ghost Mannequin Catwalk Video Generator
+name: AI Video Catwalk Generator (Stable Video Diffusion)
 
 on:
   workflow_dispatch:
     inputs:
       image_path:
-        description: 'Path to dress image inside repository'
+        description: 'Path to dress image'
         required: false
         default: 'inputs/dress.jpg'
-      dress_color:
-        description: 'Dress accent color hex'
+      motion:
+        description: 'Motion intensity (1-255)'
         required: false
-        default: '#5c4046'
-      frames:
-        description: 'Total frames (120 frames = 5s, 240 frames = 10s)'
-        required: false
-        default: '120'
+        default: '127'
   push:
     branches:
       - main
 
 jobs:
-  generate-catwalk:
+  generate-ai-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Repository
@@ -33,40 +29,28 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install System Dependencies
+      - name: Install Python Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb ffmpeg libegl1 libegl-mesa0 libgl1 libglx-mesa0 libgl1-mesa-dri libsm6 libxext6 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1
+          python3 -m pip install --upgrade pip
+          python3 -m pip install gradio_client requests
 
-      - name: Install Blender 4.2 LTS
-        run: |
-          echo "Downloading official Blender 4.2.1 Linux portable package..."
-          curl -sSL https://download.blender.org/release/Blender4.2/blender-4.2.1-linux-x64.tar.xz -o blender.tar.xz
-          tar -xf blender.tar.xz
-          sudo mv blender-4.2.1-linux-x64 /opt/blender
-          sudo ln -s /opt/blender/blender /usr/local/bin/blender
-          rm blender.tar.xz
-          blender --version
-
-      - name: Render Ghost Mannequin Catwalk Video
+      - name: Run AI Video Diffusion Generator
         run: |
           mkdir -p renders
           IMAGE_PATH="${{ github.event.inputs.image_path || 'inputs/dress.jpg' }}"
-          COLOR="${{ github.event.inputs.dress_color || '#5c4046' }}"
-          FRAMES="${{ github.event.inputs.frames || '120' }}"
+          MOTION="${{ github.event.inputs.motion || '127' }}"
           
-          xvfb-run -a python3 catwalk_cli.py \
+          python3 ai_video_generator.py \
             --image "$IMAGE_PATH" \
-            --color "$COLOR" \
-            --frames "$FRAMES" \
-            --output renders/ghost_mannequin_catwalk.mp4
-          
-          echo "Listing renders directory:"
+            --motion "$MOTION" \
+            --output renders/ai_dress_catwalk.mp4
+            
+          echo "Generated AI Video output:"
           ls -lh renders/
 
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ghost-mannequin-catwalk-video
+          name: ai-dress-catwalk-video
           path: renders/
           retention-days: 30
