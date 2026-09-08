@@ -593,26 +593,23 @@ def render_catwalk_video(output_path, total_frames=120, width=720, height=1280):
     scene.frame_start = 1
     scene.frame_end = total_frames
     scene.render.fps = 24
-    
     scene.render.resolution_x = width
     scene.render.resolution_y = height
     scene.render.resolution_percentage = 100
-    
     engines = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
-    if 'BLENDER_EEVEE_NEXT' in engines:
+    if 'CYCLES' in engines:
+        scene.render.engine = 'CYCLES'
+        scene.cycles.device = 'CPU'
+        scene.cycles.samples = 16
+        scene.cycles.preview_samples = 16
+        if hasattr(scene.cycles, 'use_denoising'):
+            scene.cycles.use_denoising = True
+    elif 'BLENDER_EEVEE_NEXT' in engines:
         scene.render.engine = 'BLENDER_EEVEE_NEXT'
     elif 'BLENDER_EEVEE' in engines:
         scene.render.engine = 'BLENDER_EEVEE'
     else:
         scene.render.engine = 'BLENDER_WORKBENCH'
-        
-    if hasattr(scene, "eevee"):
-        for prop, val in [("taa_render_samples", 32), ("use_gtao", True), ("use_ssr", True), ("use_soft_shadows", True), ("use_raytracing", True)]:
-            if hasattr(scene.eevee, prop):
-                try:
-                    setattr(scene.eevee, prop, val)
-                except Exception:
-                    pass
     
     scene.render.image_settings.file_format = 'FFMPEG'
     scene.render.ffmpeg.format = 'MPEG4'

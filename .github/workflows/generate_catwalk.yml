@@ -16,9 +16,8 @@ on:
         required: false
         default: '120'
   push:
-    paths:
-      - 'inputs/**'
-      - '.github/workflows/generate_catwalk.yml'
+    branches:
+      - main
 
 jobs:
   generate-catwalk:
@@ -37,7 +36,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb ffmpeg libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1
+          sudo apt-get install -y xvfb ffmpeg libegl1 libegl-mesa0 libgl1 libglx-mesa0 libgl1-mesa-dri libsm6 libxext6 libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1
 
       - name: Install Blender 4.2 LTS
         run: |
