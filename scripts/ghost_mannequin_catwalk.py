@@ -613,7 +613,20 @@ def render_catwalk_video(output_path, total_frames=120, width=720, height=1280):
     
     print(f"[Ghost Catwalk] Rendering fashion runway animation to {output_path} ({total_frames} frames @ {width}x{height})...")
     bpy.ops.render.render(animation=True)
-    print(f"[Ghost Catwalk] Catwalk video rendered successfully!")
+    
+    # Blender often appends frame ranges like 'catwalk.mp40001-0120.mp4' or 'catwalk0001-0120.mp4'
+    if not os.path.exists(output_path):
+        out_dir = os.path.dirname(os.path.abspath(output_path))
+        base_prefix = os.path.splitext(os.path.basename(output_path))[0]
+        for fname in os.listdir(out_dir):
+            if fname.startswith(base_prefix) and (fname.endswith('.mp4') or fname.endswith('.mkv')):
+                candidate = os.path.join(out_dir, fname)
+                import shutil
+                shutil.copy2(candidate, output_path)
+                print(f"[Ghost Catwalk] Normalized {fname} -> {output_path}")
+                break
+                
+    print(f"[Ghost Catwalk] Catwalk video ready at: {output_path}")
 
 def main():
     args = parse_args()
@@ -638,8 +651,7 @@ def main():
     void_obj.parent_bone = 'Neck'
     
     print("[4/5] Draping Dress & Butterfly Cape with Fabric Physics...")
-    lace_default = "/home/mou/Videos/cool/3d_cloth_studio/templates/lace_trim.jpg"
-    tex_path = args.image if (args.image and os.path.exists(args.image)) else lace_default
+    tex_path = args.image if (args.image and os.path.exists(args.image)) else None
     dress, cape = build_catwalk_dress_and_cape(arm_obj, base_color_hex=args.color, texture_path=tex_path)
     
     print("[5/5] Positioning 9:16 Vertical Fashion Camera...")

@@ -66,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ghost-mannequin-catwalk-video
-          path: renders/*.mp4
+          path: renders/*
           retention-days: 30
