@@ -1,16 +1,16 @@
-name: AI Video Catwalk Generator (Stable Video Diffusion)
+name: Advanced AI Video Generator (Wan 2.2 & SVD)
 
 on:
   workflow_dispatch:
     inputs:
       image_path:
-        description: 'Path to dress image'
+        description: 'Path to input garment photo'
         required: false
         default: 'inputs/dress.jpg'
-      motion:
-        description: 'Motion intensity (1-255)'
+      prompt:
+        description: 'Text prompt describing the catwalk runway scene'
         required: false
-        default: '127'
+        default: 'Fashion runway catwalk show, ghost mannequin wearing this Moroccan hooded jalaba walking forward down the runway, invisible void head, glossy reflective floor, dramatic fashion spotlights'
   push:
     branches:
       - main
@@ -34,16 +34,16 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install gradio_client requests
 
-      - name: Run AI Video Diffusion Generator
+      - name: Run Wan 2.2 Advanced AI Video Generator
         run: |
           mkdir -p renders
           IMAGE_PATH="${{ github.event.inputs.image_path || 'inputs/dress.jpg' }}"
-          MOTION="${{ github.event.inputs.motion || '127' }}"
+          PROMPT="${{ github.event.inputs.prompt || 'Fashion runway catwalk show, ghost mannequin wearing this Moroccan hooded jalaba walking forward down the runway, invisible void head, glossy reflective floor, dramatic fashion spotlights' }}"
           
           python3 ai_video_generator.py \
             --image "$IMAGE_PATH" \
-            --motion "$MOTION" \
-            --output renders/ai_dress_catwalk.mp4
+            --prompt "$PROMPT" \
+            --output renders/wan_ai_dress_catwalk.mp4
             
           echo "Generated AI Video output:"
           ls -lh renders/
@@ -51,6 +51,6 @@ jobs:
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-dress-catwalk-video
-          path: renders/
+          name: ai-catwalk-video-wan
+          path: renders/*.mp4
           retention-days: 30
